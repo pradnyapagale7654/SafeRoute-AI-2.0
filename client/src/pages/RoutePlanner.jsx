@@ -1,4 +1,6 @@
 import { useState } from "react";
+import axios from "axios";
+
 import {
   MapContainer,
   TileLayer,
@@ -16,15 +18,31 @@ function LocationMarker({ position }) {
 
   return position ? (
     <Marker position={position}>
-      <Popup>
-        📍 You are here
-      </Popup>
+      <Popup>📍 Starting Location</Popup>
+    </Marker>
+  ) : null;
+}
+
+function DestinationMarker({ position }) {
+  const map = useMap();
+
+  if (position) {
+    map.setView(position, 14);
+  }
+
+  return position ? (
+    <Marker position={position}>
+      <Popup>🎯 Destination</Popup>
     </Marker>
   ) : null;
 }
 
 function RoutePlanner() {
   const [position, setPosition] = useState([18.5204, 73.8567]);
+
+  const [destination, setDestination] = useState("");
+  const [destinationPosition, setDestinationPosition] = useState(null);
+
   const [loading, setLoading] = useState(false);
 
   const getCurrentLocation = () => {
@@ -33,25 +51,60 @@ function RoutePlanner() {
       return;
     }
 
-    setLoading(true);
-
     navigator.geolocation.getCurrentPosition(
       (location) => {
         const latitude = location.coords.latitude;
         const longitude = location.coords.longitude;
 
         setPosition([latitude, longitude]);
-        setLoading(false);
       },
-      (error) => {
-        console.error(error);
-        setLoading(false);
-
-        alert(
-          "Unable to get your location. Please allow location access."
-        );
+      () => {
+        alert("Unable to get your location. Please allow location access.");
       }
     );
+  };
+
+  const searchDestination = async () => {
+    if (!destination.trim()) {
+      alert("Please enter a destination.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await axios.get(
+        "https://nominatim.openstreetmap.org/search",
+        {
+          params: {
+            q: destination,
+            format: "json",
+            limit: 1,
+          },
+          headers: {
+            Accept: "application/json",
+          },
+        }
+      );
+
+      if (response.data.length === 0) {
+        alert("Destination not found.");
+        return;
+      }
+
+      const result = response.data[0];
+
+      const latitude = parseFloat(result.lat);
+      const longitude = parseFloat(result.lon);
+
+      setDestinationPosition([latitude, longitude]);
+
+    } catch (error) {
+      console.error(error);
+      alert("Unable to search destination.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -88,20 +141,11 @@ function RoutePlanner() {
               Starting Location
             </label>
 
-            <input
-              type="text"
-              placeholder="Enter starting location"
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 mt-2 mb-4"
-            />
-
             <button
               onClick={getCurrentLocation}
-              disabled={loading}
-              className="text-green-600 font-semibold mb-6"
+              className="w-full mt-2 mb-6 border border-green-500 text-green-600 py-3 rounded-lg font-semibold hover:bg-green-50"
             >
-              {loading
-                ? "📍 Getting location..."
-                : "📍 Use My Current Location"}
+              📍 Use My Current Location
             </button>
 
             <label className="font-semibold">
@@ -110,13 +154,35 @@ function RoutePlanner() {
 
             <input
               type="text"
-              placeholder="Where do you want to go?"
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 mt-2 mb-6"
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+              placeholder="Example: Pune Railway Station"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 mt-2 mb-4"
             />
 
-            <button className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition">
-              Find Safest Route
+            <button
+              onClick={searchDestination}
+              disabled={loading}
+              className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition"
+            >
+              {loading ? "Searching..." : "Search Destination"}
             </button>
+
+            {destinationPosition && (
+              <div className="mt-6 bg-green-50 p-4 rounded-lg">
+                <p className="font-semibold text-green-700">
+                  🎯 Destination Found
+                </p>
+
+                <p className="text-sm text-gray-600 mt-2">
+                  Latitude: {destinationPosition[0].toFixed(5)}
+                </p>
+
+                <p className="text-sm text-gray-600">
+                  Longitude: {destinationPosition[1].toFixed(5)}
+                </p>
+              </div>
+            )}
 
           </div>
 
@@ -142,6 +208,10 @@ function RoutePlanner() {
                 />
 
                 <LocationMarker position={position} />
+
+                <DestinationMarker
+                  position={destinationPosition}
+                />
 
               </MapContainer>
 
