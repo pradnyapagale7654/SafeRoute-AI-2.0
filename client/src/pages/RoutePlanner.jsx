@@ -1,11 +1,66 @@
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { useState } from "react";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  useMap,
+} from "react-leaflet";
+
+function LocationMarker({ position }) {
+  const map = useMap();
+
+  if (position) {
+    map.setView(position, 15);
+  }
+
+  return position ? (
+    <Marker position={position}>
+      <Popup>
+        📍 You are here
+      </Popup>
+    </Marker>
+  ) : null;
+}
 
 function RoutePlanner() {
+  const [position, setPosition] = useState([18.5204, 73.8567]);
+  const [loading, setLoading] = useState(false);
+
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    setLoading(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (location) => {
+        const latitude = location.coords.latitude;
+        const longitude = location.coords.longitude;
+
+        setPosition([latitude, longitude]);
+        setLoading(false);
+      },
+      (error) => {
+        console.error(error);
+        setLoading(false);
+
+        alert(
+          "Unable to get your location. Please allow location access."
+        );
+      }
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
 
+      {/* Header */}
       <div className="bg-slate-900 text-white py-10 px-6">
         <div className="max-w-7xl mx-auto">
+
           <h1 className="text-4xl font-bold">
             🗺️ Safe Route Planner
           </h1>
@@ -13,14 +68,16 @@ function RoutePlanner() {
           <p className="text-gray-300 mt-3">
             Find a safer route to your destination.
           </p>
+
         </div>
       </div>
 
+      {/* Main */}
       <div className="max-w-7xl mx-auto px-6 py-10">
 
         <div className="grid lg:grid-cols-3 gap-8">
 
-          {/* Route controls */}
+          {/* Controls */}
           <div className="bg-white rounded-2xl shadow-lg p-6">
 
             <h2 className="text-2xl font-bold mb-6">
@@ -34,11 +91,17 @@ function RoutePlanner() {
             <input
               type="text"
               placeholder="Enter starting location"
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 mt-2 mb-5"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 mt-2 mb-4"
             />
 
-            <button className="text-green-600 font-semibold mb-6">
-              📍 Use My Current Location
+            <button
+              onClick={getCurrentLocation}
+              disabled={loading}
+              className="text-green-600 font-semibold mb-6"
+            >
+              {loading
+                ? "📍 Getting location..."
+                : "📍 Use My Current Location"}
             </button>
 
             <label className="font-semibold">
@@ -57,7 +120,7 @@ function RoutePlanner() {
 
           </div>
 
-          {/* Real map */}
+          {/* Map */}
           <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6">
 
             <h2 className="text-2xl font-bold mb-5">
@@ -67,7 +130,7 @@ function RoutePlanner() {
             <div className="h-96 rounded-xl overflow-hidden">
 
               <MapContainer
-                center={[18.5204, 73.8567]}
+                center={position}
                 zoom={13}
                 scrollWheelZoom={true}
                 className="h-full w-full"
@@ -78,11 +141,7 @@ function RoutePlanner() {
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
 
-                <Marker position={[18.5204, 73.8567]}>
-                  <Popup>
-                    📍 Pune
-                  </Popup>
-                </Marker>
+                <LocationMarker position={position} />
 
               </MapContainer>
 
