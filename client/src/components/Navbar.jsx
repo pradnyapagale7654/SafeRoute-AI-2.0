@@ -15,9 +15,10 @@ function Navbar() {
       <h2>🛡 SafeRoute AI</h2>
 
       <div style={{ display: "flex", gap: "20px" }}>
-        <Link to="/">Home</Link>
-        <Link to="/dashboard">Dashboard</Link>
-      </div>
+  <Link to="/">Home</Link>
+  <Link to="/route-planner">Safe Route</Link>
+  <Link to="/dashboard">Dashboard</Link>
+</div>
 
       <div>
         <Link to="/login">

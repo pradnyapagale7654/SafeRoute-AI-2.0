@@ -4,6 +4,7 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
+import RoutePlanner from "./pages/RoutePlanner";
 import NotFound from "./pages/NotFound";
 
 function App() {
@@ -14,6 +15,12 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<Dashboard />} />
+
+        <Route
+          path="/route-planner"
+          element={<RoutePlanner />}
+        />
+
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
