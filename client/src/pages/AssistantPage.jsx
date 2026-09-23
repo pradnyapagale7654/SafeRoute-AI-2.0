@@ -22,8 +22,10 @@ function AssistantPage() {
 
   useEffect(() => {
     if (plannerState.routeHint) {
-      setPrompt((current) => current || plannerState.routeHint);
+      const timer = window.setTimeout(() => setPrompt((current) => current || plannerState.routeHint), 0);
+      return () => window.clearTimeout(timer);
     }
+    return undefined;
   }, [plannerState.routeHint]);
 
   const sendPrompt = async (nextPrompt) => {
@@ -62,7 +64,7 @@ function AssistantPage() {
       setPrompt("");
     } catch (assistantError) {
       const message =
-        assistantError.response?.data?.message || "Unable to generate travel guidance.";
+        assistantError.response?.data?.message || assistantError.message || "Unable to generate travel guidance. Check your connection and try again.";
       setMessages((current) => [
         ...current,
         { role: "assistant", text: message },

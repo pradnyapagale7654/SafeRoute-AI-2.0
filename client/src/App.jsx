@@ -16,6 +16,9 @@ import AdminDashboard from "./pages/AdminDashboard";
 import RoutePlanner from "./pages/RoutePlanner";
 import AssistantPage from "./pages/AssistantPage";
 import NotFound from "./pages/NotFound";
+import LiveLocationPage from "./pages/LiveLocationPage";
+import IncidentPage from "./pages/IncidentPage";
+import MovementSignalPage from "./pages/MovementSignalPage";
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
@@ -74,6 +77,17 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/live-location"
+            element={
+              <ProtectedRoute>
+                <LiveLocationPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/live-location/:sessionId" element={<LiveLocationPage />} />
+          <Route path="/incidents" element={<ProtectedRoute><IncidentPage /></ProtectedRoute>} />
+          <Route path="/movement-signal" element={<ProtectedRoute><MovementSignalPage /></ProtectedRoute>} />
           <Route
             path="/admin"
             element={

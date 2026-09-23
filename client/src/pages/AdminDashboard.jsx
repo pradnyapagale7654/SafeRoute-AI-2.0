@@ -86,6 +86,17 @@ function AdminDashboard() {
           </div>
         </section>
 
+        <section className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {[['Active users', overview?.activeUsers], ['SOS events', overview?.sosEvents], ['Incident reports', overview?.incidentReports], ['Live sessions', overview?.activeLiveSessions]].map(([label, value]) => (
+            <div key={label} className="rounded-2xl bg-white p-5 shadow-sm"><p className="text-sm font-bold text-slate-500">{label}</p><p className="mt-2 text-3xl font-black text-[#102a2b]">{value ?? "--"}</p></div>
+          ))}
+        </section>
+
+        <section className="mt-7 grid gap-5 lg:grid-cols-2">
+          <div className="rounded-3xl bg-white p-6 shadow-sm"><h2 className="text-xl font-black">Incident categories</h2><div className="mt-4 space-y-2">{(overview?.incidentCategories || []).map((item) => <div key={item._id} className="flex justify-between rounded-lg bg-slate-50 p-3 text-sm"><span>{item._id}</span><strong>{item.count}</strong></div>)}</div></div>
+          <div className="rounded-3xl bg-white p-6 shadow-sm"><h2 className="text-xl font-black">Report status</h2><div className="mt-4 space-y-2">{(overview?.incidentStatuses || []).map((item) => <div key={item._id} className="flex justify-between rounded-lg bg-slate-50 p-3 text-sm"><span>{item._id}</span><strong>{item.count}</strong></div>)}</div></div>
+        </section>
+
         <section className="mt-7 grid gap-5 lg:grid-cols-[1.4fr_0.8fr]">
           <div className="rounded-3xl bg-white p-7 shadow-sm">
             <div className="flex items-start justify-between gap-4">

@@ -1,105 +1,54 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { useLanguage } from "../context/useLanguage";
 import LanguageSelect from "../components/LanguageSelect";
+import SosButton from "../components/SosButton";
 
 function Dashboard() {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, token, signOut } = useAuth();
   const { translate } = useLanguage();
-  const [contact, setContact] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("safeRouteTrustedContact")) || null;
-    } catch {
-      return null;
-    }
-  });
-  const [contactForm, setContactForm] = useState({ name: "", phone: "" });
-  const [assistantPrompt, setAssistantPrompt] = useState(
-    "I am going to Pune Station at 11 PM."
-  );
-  const [assistantLoading, setAssistantLoading] = useState(false);
-  const [assistantResult, setAssistantResult] = useState(null);
-  const [assistantError, setAssistantError] = useState("");
-  const [assistantMessages, setAssistantMessages] = useState([
-    {
-      role: "assistant",
-      text: "Hi! Tell me where you're going and when, and I’ll give you a safer travel plan.",
-    },
-  ]);
+  const [contacts, setContacts] = useState([]);
+  const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", relationship: "trusted contact" });
+  const [contactMessage, setContactMessage] = useState("");
 
-  const saveContact = (event) => {
+  useEffect(() => {
+    axios.get("http://localhost:5000/api/trusted-circle", {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((response) => {
+      const nextContacts = response.data.contacts || [];
+      setContacts(nextContacts);
+      localStorage.setItem("safeRouteTrustedContacts", JSON.stringify(nextContacts));
+    }).catch(() => setContacts([]));
+  }, [token]);
+
+  const saveContact = async (event) => {
     event.preventDefault();
-    localStorage.setItem(
-      "safeRouteTrustedContact",
-      JSON.stringify(contactForm)
-    );
-    setContact(contactForm);
-    setContactForm({ name: "", phone: "" });
-  };
-
-  const buildAssistantSummary = (data) => {
-    const riskLabel = data?.safetyScore ? `Safety score: ${data.safetyScore}.` : "Safety score is not available yet.";
-    const weatherLine = data?.weather ? `Weather note: ${data.weather}.` : "Weather detail is unavailable.";
-    const warningLine = data?.warnings?.length
-      ? `Important note: ${data.warnings[0]}.`
-      : "No urgent warnings reported.";
-
-    return `${riskLabel} ${weatherLine} ${warningLine}`;
-  };
-
-  const askAssistant = async (event) => {
-    event.preventDefault();
-    if (!assistantPrompt.trim()) {
-      setAssistantError("Please enter a travel request.");
-      return;
-    }
-
-    const userMessage = { role: "user", text: assistantPrompt.trim() };
-    setAssistantMessages((current) => [...current, userMessage]);
-    setAssistantLoading(true);
-    setAssistantError("");
-
     try {
-      const response = await axios.post("http://localhost:5000/api/assistant/chat", {
-        prompt: assistantPrompt,
-        currentLocation: {
-          latitude: 18.5204,
-          longitude: 73.8567,
-        },
+      const response = await axios.post("http://localhost:5000/api/trusted-circle", contactForm, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      const data = response.data;
-      setAssistantResult(data);
-      setAssistantMessages((current) => [
-        ...current,
-        {
-          role: "assistant",
-          text: buildAssistantSummary(data),
-        },
-      ]);
-      setAssistantPrompt("");
-    } catch (error) {
-      const fallbackMessage =
-        error.response?.data?.message || "Unable to generate travel guidance.";
-      setAssistantMessages((current) => [
-        ...current,
-        {
-          role: "assistant",
-          text: fallbackMessage,
-        },
-      ]);
-      setAssistantError(fallbackMessage);
-    } finally {
-      setAssistantLoading(false);
+      setContacts((current) => [response.data.contact, ...current]);
+      setContactForm({ name: "", email: "", phone: "", relationship: "trusted contact" });
+    } catch {
+      setContactMessage("Unable to save trusted contact.");
     }
   };
 
-  const removeContact = () => {
-    localStorage.removeItem("safeRouteTrustedContact");
-    setContact(null);
+  const removeContact = async (contactId) => {
+    await axios.delete(`http://localhost:5000/api/trusted-circle/${contactId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setContacts((current) => current.filter((item) => item.id !== contactId));
+  };
+
+  const markEmergencyContact = async (contactId) => {
+    const response = await axios.patch(`http://localhost:5000/api/trusted-circle/${contactId}/emergency`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setContacts((current) => current.map((item) => ({ ...item, isEmergencyContact: item.id === response.data.contact.id })));
   };
 
   const handleLogout = () => {
@@ -140,6 +89,7 @@ function Dashboard() {
             </div>
             <div className="flex gap-3">
               <LanguageSelect />
+              <SosButton />
               {user.role === "admin" && (
                 <button
                   onClick={() => navigate("/admin")}
@@ -216,6 +166,24 @@ function Dashboard() {
                   {translate("comingNext")}
                 </span>
               </div>
+              <button
+                onClick={() => navigate("/live-location")}
+                className="rounded-2xl border border-[#4c8b47] bg-[#eef8e5] p-6 text-left transition hover:-translate-y-1 hover:shadow"
+              >
+                <span className="text-3xl">⌖</span>
+                <h3 className="mt-6 text-xl font-black text-[#102a2b]">Live location sharing</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Share your latest location with an authorized person while you travel.</p>
+                <span className="mt-5 inline-block font-bold text-[#315524]">Open live sharing</span>
+              </button>
+              <button
+                onClick={() => navigate("/incidents")}
+                className="rounded-2xl border border-amber-300 bg-amber-50 p-6 text-left transition hover:-translate-y-1 hover:shadow"
+              >
+                <span className="text-3xl">!</span>
+                <h3 className="mt-6 text-xl font-black text-[#102a2b]">Community reports</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Report and review nearby user-generated safety signals.</p>
+                <span className="mt-5 inline-block font-bold text-amber-800">Open reports</span>
+              </button>
             </div>
           </div>
 
@@ -276,31 +244,27 @@ function Dashboard() {
                 Server-backed encrypted contacts can be added before production.
               </p>
             </div>
-            {contact && (
+            {contacts[0] && (
               <a
-                href={`tel:${contact.phone}`}
+                href={`tel:${contacts[0].phone}`}
                 className="rounded-full bg-[#f3b562] px-5 py-3 text-center font-bold text-[#102a2b] hover:bg-[#ffc980]"
               >
-                Call {contact.name}
+                Call {contacts[0].name}
               </a>
             )}
           </div>
 
-          {contact ? (
-            <div className="mt-6 flex flex-col justify-between gap-4 rounded-2xl bg-[#eef8e5] p-5 sm:flex-row sm:items-center">
-              <div>
-                <p className="font-bold text-[#315524]">{contact.name}</p>
-                <p className="mt-1 text-sm text-[#466b39]">{contact.phone}</p>
-              </div>
-              <button
-                onClick={removeContact}
-                className="rounded-lg border border-red-200 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50"
-              >
-                Remove contact
-              </button>
+          {contacts.length > 0 && (
+            <div className="mt-6 space-y-3">
+              {contacts.map((item) => (
+                <div key={item.id} className="flex flex-col justify-between gap-4 rounded-2xl bg-[#eef8e5] p-5 sm:flex-row sm:items-center">
+                  <div><p className="font-bold text-[#315524]">{item.name} {item.isEmergencyContact ? "· Emergency" : ""}</p><p className="mt-1 text-sm text-[#466b39]">{item.phone}{item.email ? ` · ${item.email}` : ""}</p></div>
+                  <div className="flex gap-2"><button onClick={() => markEmergencyContact(item.id)} className="rounded-lg border border-[#4c8b47] px-3 py-2 text-sm font-bold text-[#315524]">Mark emergency</button><button onClick={() => removeContact(item.id)} className="rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700">Remove</button></div>
+                </div>
+              ))}
             </div>
-          ) : (
-            <form onSubmit={saveContact} className="mt-6 grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
+          )}
+          <form onSubmit={saveContact} className="mt-6 grid gap-4 sm:grid-cols-2">
               <input
                 required
                 type="text"
@@ -309,6 +273,13 @@ function Dashboard() {
                 onChange={(event) =>
                   setContactForm({ ...contactForm, name: event.target.value })
                 }
+                className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#4c8b47] focus:ring-2 focus:ring-[#dff7bd]"
+              />
+              <input
+                type="email"
+                placeholder="Contact email (optional)"
+                value={contactForm.email}
+                onChange={(event) => setContactForm({ ...contactForm, email: event.target.value })}
                 className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#4c8b47] focus:ring-2 focus:ring-[#dff7bd]"
               />
               <input
@@ -323,12 +294,12 @@ function Dashboard() {
               />
               <button
                 type="submit"
-                className="rounded-xl bg-[#102a2b] px-5 py-3 font-bold text-white hover:bg-[#1a4242]"
+                className="rounded-xl bg-[#102a2b] px-5 py-3 font-bold text-white hover:bg-[#1a4242] sm:col-span-2"
               >
                 Save contact
               </button>
-            </form>
-          )}
+          </form>
+              {contactMessage && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">{contactMessage}</p>}
         </section>
       </div>
     </main>

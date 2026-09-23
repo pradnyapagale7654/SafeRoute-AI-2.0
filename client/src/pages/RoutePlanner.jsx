@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import SosButton from "../components/SosButton";
 
 import {
   MapContainer,
@@ -168,7 +169,6 @@ function RoutePlanner() {
     useState("");
 
   const [safeZones, setSafeZones] = useState([]);
-  const [safeZonesLoading, setSafeZonesLoading] = useState(false);
 
   const [routeSelected, setRouteSelected] =
     useState(false);
@@ -580,23 +580,26 @@ function RoutePlanner() {
       setSafetyWarnings(warnings || []);
       setSafetyDataSource(dataSource || "");
 
-      const nearbyResponse = await axios.get(
-        "http://localhost:5000/api/safe-zones/nearby",
-        {
-          params: {
-            latitude: position[0],
-            longitude: position[1],
-            radiusKm: 5,
-          },
-        }
-      );
-
-      setSafeZones(nearbyResponse.data.safeZones || []);
+      try {
+        const nearbyResponse = await axios.get(
+          "http://localhost:5000/api/safe-zones/nearby",
+          {
+            params: {
+              latitude: position[0],
+              longitude: position[1],
+              radiusKm: 5,
+            },
+          }
+        );
+        setSafeZones(nearbyResponse.data.safeZones || []);
+      } catch (safeZoneError) {
+        console.error("Safe-zone lookup failed:", safeZoneError);
+        setSafeZones([]);
+        setRouteNotice("Route safety analyzed. Nearby safe-zone data is unavailable.");
+      }
     } catch (error) {
       console.error(error);
-      setSafetyError(
-        "Unable to analyze route safety. Please try again."
-      );
+      setSafetyError(error.response?.data?.message || error.message || "Unable to analyze route safety. Please try again.");
       setSafeZones([]);
     } finally {
       setSafetyLoading(false);
@@ -755,6 +758,10 @@ function RoutePlanner() {
           <h1 className="text-4xl font-bold">
             🗺️ Safe Route Planner
           </h1>
+
+          <div className="mt-5">
+            <SosButton />
+          </div>
 
           <p className="text-gray-300 mt-3">
             Find a safer route to your destination.
