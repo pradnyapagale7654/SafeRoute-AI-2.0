@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 import {
   MapContainer,
@@ -82,6 +83,7 @@ function DestinationMarker({ position }) {
 // ======================================================
 
 function RoutePlanner() {
+  const navigate = useNavigate();
 
   // ----------------------------------------------------
   // LOCATION
@@ -109,6 +111,17 @@ function RoutePlanner() {
   // ----------------------------------------------------
 
   const [route, setRoute] = useState([]);
+
+  const [routes, setRoutes] = useState([]);
+
+  const [selectedRouteId, setSelectedRouteId] =
+    useState(null);
+
+  const [routeComparisonLoading, setRouteComparisonLoading] =
+    useState(false);
+
+  const [routeComparisonError, setRouteComparisonError] =
+    useState("");
 
   const [distance, setDistance] =
     useState(null);
@@ -147,6 +160,15 @@ function RoutePlanner() {
 
   const [safetyError, setSafetyError] =
     useState("");
+
+  const [safetyWarnings, setSafetyWarnings] =
+    useState([]);
+
+  const [safetyDataSource, setSafetyDataSource] =
+    useState("");
+
+  const [safeZones, setSafeZones] = useState([]);
+  const [safeZonesLoading, setSafeZonesLoading] = useState(false);
 
   const [routeSelected, setRouteSelected] =
     useState(false);
@@ -196,6 +218,12 @@ function RoutePlanner() {
 
         setRoute([]);
 
+        setRoutes([]);
+
+        setSelectedRouteId(null);
+
+        setRouteComparisonError("");
+
         setRouteSelected(false);
 
         setRouteSteps([]);
@@ -213,6 +241,10 @@ function RoutePlanner() {
         setSafetyAnalysis(null);
 
         setSafetyError("");
+
+        setSafetyWarnings([]);
+
+        setSafetyDataSource("");
 
         setLocationLoading(false);
       },
@@ -311,6 +343,12 @@ function RoutePlanner() {
 
       setRoute([]);
 
+      setRoutes([]);
+
+      setSelectedRouteId(null);
+
+      setRouteComparisonError("");
+
       setRouteSelected(false);
 
       setRouteSteps([]);
@@ -329,6 +367,10 @@ function RoutePlanner() {
 
       setSafetyError("");
 
+      setSafetyWarnings([]);
+
+      setSafetyDataSource("");
+
     } catch (error) {
 
       console.error(error);
@@ -344,129 +386,145 @@ function RoutePlanner() {
   };
 
   // ====================================================
-  // FIND ROUTE
+  // FIND AND ANALYZE ROUTES
   // ====================================================
 
-  const findRoute = async () => {
+  const analyzeRouteOption = async (routeData, index) => {
+    const routeCoordinates = routeData.geometry.coordinates.map(
+      ([longitude, latitude]) => [latitude, longitude]
+    );
+    const distanceInKm = routeData.distance / 1000;
+    const durationInMinutes = routeData.duration / 60;
 
-    if (!destinationPosition) {
-
-      alert(
-        "Please search for a destination first."
+    try {
+      const safetyResponse = await axios.post(
+        "http://localhost:5000/api/safety/analyze",
+        {
+          start: {
+            latitude: position[0],
+            longitude: position[1],
+          },
+          destination: {
+            latitude: destinationPosition[0],
+            longitude: destinationPosition[1],
+          },
+          routeCoordinates,
+          distance: distanceInKm,
+          duration: durationInMinutes,
+          currentTime: new Date().toISOString(),
+        }
       );
 
+      return {
+        id: `route-${index + 1}`,
+        label: `Route ${index + 1}`,
+        coordinates: routeCoordinates,
+        distance: distanceInKm,
+        duration: durationInMinutes,
+        steps: routeData.legs?.[0]?.steps || [],
+        safety: safetyResponse.data,
+        safetyError: "",
+      };
+    } catch (error) {
+      console.error(`Safety analysis failed for route ${index + 1}`, error);
+
+      return {
+        id: `route-${index + 1}`,
+        label: `Route ${index + 1}`,
+        coordinates: routeCoordinates,
+        distance: distanceInKm,
+        duration: durationInMinutes,
+        steps: routeData.legs?.[0]?.steps || [],
+        safety: null,
+        safetyError: "Safety analysis unavailable",
+      };
+    }
+  };
+
+  const findRoute = async () => {
+    if (!destinationPosition) {
+      alert("Please search for a destination first.");
       return;
     }
 
     try {
-
       setRouteLoading(true);
-
-      const startLatitude =
-        position[0];
-
-      const startLongitude =
-        position[1];
-
-      const destinationLatitude =
-        destinationPosition[0];
-
-      const destinationLongitude =
-        destinationPosition[1];
+      setRouteComparisonLoading(true);
+      setRouteComparisonError("");
+      setRoutes([]);
+      setSelectedRouteId(null);
 
       const url =
         `https://router.project-osrm.org/route/v1/driving/` +
-        `${startLongitude},${startLatitude};` +
-        `${destinationLongitude},${destinationLatitude}`;
+        `${position[1]},${position[0]};` +
+        `${destinationPosition[1]},${destinationPosition[0]}`;
+      const response = await axios.get(url, {
+        params: {
+          overview: "full",
+          geometries: "geojson",
+          steps: true,
+          alternatives: true,
+        },
+      });
 
-      const response =
-        await axios.get(url, {
-          params: {
-            overview: "full",
-            geometries: "geojson",
-            steps: true,
-          },
-        });
-
-      if (
-        !response.data.routes ||
-        response.data.routes.length === 0
-      ) {
-
-        alert(
-          "No route found."
-        );
-
+      if (!response.data.routes || response.data.routes.length === 0) {
+        setRouteComparisonError("No route found for this destination.");
+        setRoute([]);
         return;
       }
 
-      const routeData =
-        response.data.routes[0];
-
-      // OSRM returns:
-      // [longitude, latitude]
-
-      const coordinates =
-        routeData.geometry.coordinates;
-
-      // Leaflet needs:
-      // [latitude, longitude]
-
-      const routeCoordinates =
-        coordinates.map(
-          ([longitude, latitude]) => [
-            latitude,
-            longitude,
-          ]
-        );
-
-      setRoute(
-        routeCoordinates
+      const routeOptions = await Promise.all(
+        response.data.routes.map(analyzeRouteOption)
       );
+      const previewRoute = routeOptions[0];
 
+      setRoutes(routeOptions);
+      setRoute(previewRoute.coordinates);
+      setDistance(previewRoute.distance);
+      setDuration(previewRoute.duration);
+      setRouteSteps(previewRoute.steps);
       setRouteSelected(false);
-
-      setRouteSteps(routeData.legs?.[0]?.steps || []);
-
-      setRouteNotice("");
-
-      // Distance in meters
-      const distanceInKm =
-        routeData.distance / 1000;
-
-      // Duration in seconds
-      const durationInMinutes =
-        routeData.duration / 60;
-
-      setDistance(
-        distanceInKm
-      );
-
-      setDuration(
-        durationInMinutes
-      );
-
-      // Clear previous safety result
-
+      setRouteNotice("Select a route below to make it active.");
       setSafetyScore(null);
-
       setSafetyLevel("");
-
       setSafetyAnalysis(null);
-
       setSafetyError("");
-
+      setSafetyWarnings([]);
+      setSafetyDataSource("");
     } catch (error) {
-
       console.error(error);
-
-      alert(
-        "Unable to find route. Please try again."
+      setRouteComparisonError(
+        "Unable to calculate routes. Please try again."
       );
-
     } finally {
-
       setRouteLoading(false);
+      setRouteComparisonLoading(false);
+    }
+  };
+
+  const selectRoute = (routeOption) => {
+    setSelectedRouteId(routeOption.id);
+    setRoute(routeOption.coordinates);
+    setDistance(routeOption.distance);
+    setDuration(routeOption.duration);
+    setRouteSteps(routeOption.steps);
+    setRouteSelected(false);
+    setRouteNotice(`${routeOption.label} is now the active route.`);
+
+    if (routeOption.safety) {
+      setSafetyScore(routeOption.safety.safetyScore);
+      setSafetyLevel(routeOption.safety.safetyLevel);
+      setSafetyAnalysis(routeOption.safety.factors);
+      setSafetyWarnings(routeOption.safety.warnings || []);
+      setSafetyDataSource(routeOption.safety.dataSource || "");
+      setSafetyError("");
+    } else {
+      setSafetyScore(null);
+      setSafetyLevel("");
+      setSafetyAnalysis(null);
+      setSafetyWarnings([]);
+      setSafetyDataSource("");
+      setSafetyError(routeOption.safetyError);
     }
   };
 
@@ -490,20 +548,56 @@ function RoutePlanner() {
       setSafetyError("");
 
       const response = await axios.post(
-        "http://localhost:5000/api/safety/analyze"
+        "http://localhost:5000/api/safety/analyze",
+        {
+          start: {
+            latitude: position[0],
+            longitude: position[1],
+          },
+          destination: {
+            latitude: destinationPosition[0],
+            longitude: destinationPosition[1],
+          },
+          routeCoordinates: route,
+          distance,
+          duration,
+          currentTime: new Date().toISOString(),
+        }
       );
 
-      const { safetyScore: score, safetyLevel: level, factors } =
+      const {
+        safetyScore: score,
+        safetyLevel: level,
+        factors,
+        warnings,
+        dataSource,
+      } =
         response.data;
 
       setSafetyScore(score);
       setSafetyLevel(level);
       setSafetyAnalysis(factors);
+      setSafetyWarnings(warnings || []);
+      setSafetyDataSource(dataSource || "");
+
+      const nearbyResponse = await axios.get(
+        "http://localhost:5000/api/safe-zones/nearby",
+        {
+          params: {
+            latitude: position[0],
+            longitude: position[1],
+            radiusKm: 5,
+          },
+        }
+      );
+
+      setSafeZones(nearbyResponse.data.safeZones || []);
     } catch (error) {
       console.error(error);
       setSafetyError(
         "Unable to analyze route safety. Please try again."
       );
+      setSafeZones([]);
     } finally {
       setSafetyLoading(false);
     }
@@ -591,6 +685,55 @@ function RoutePlanner() {
     }
 
     return `Turn ${modifier || "ahead"} onto ${roadName}`;
+  };
+
+  const shortestRouteId = routes.length
+    ? routes.reduce((shortest, current) =>
+        current.distance < shortest.distance ? current : shortest
+      ).id
+    : null;
+
+  const fastestRouteId = routes.length
+    ? routes.reduce((fastest, current) =>
+        current.duration < fastest.duration ? current : fastest
+      ).id
+    : null;
+
+  const safeRoutes = routes.filter((routeOption) => routeOption.safety);
+
+  const safestRouteId = safeRoutes.length
+    ? safeRoutes.reduce((best, current) =>
+        current.safety.safetyScore > best.safety.safetyScore ? current : best
+      ).id
+    : null;
+
+  const balancedRouteId = safeRoutes.length
+    ? safeRoutes.reduce((best, current) => {
+        const minScore = Math.min(...safeRoutes.map((route) => route.safety.safetyScore));
+        const maxScore = Math.max(...safeRoutes.map((route) => route.safety.safetyScore));
+        const minDistance = Math.min(...safeRoutes.map((route) => route.distance));
+        const maxDistance = Math.max(...safeRoutes.map((route) => route.distance));
+        const minDuration = Math.min(...safeRoutes.map((route) => route.duration));
+        const maxDuration = Math.max(...safeRoutes.map((route) => route.duration));
+
+        const safetyRange = maxScore - minScore || 1;
+        const distanceRange = maxDistance - minDistance || 1;
+        const durationRange = maxDuration - minDuration || 1;
+
+        const scoreForRoute = (route) =>
+          ((route.safety.safetyScore - minScore) / safetyRange) * 0.5 +
+          ((maxDistance - route.distance) / distanceRange) * 0.25 +
+          ((maxDuration - route.duration) / durationRange) * 0.25;
+
+        return scoreForRoute(current) > scoreForRoute(best) ? current : best;
+      }).id
+    : null;
+
+  const routeTagStyles = {
+    Safest: "bg-emerald-100 text-emerald-700",
+    Shortest: "bg-blue-100 text-blue-700",
+    Fastest: "bg-orange-100 text-orange-700",
+    Balanced: "bg-violet-100 text-violet-700",
   };
 
   // ====================================================
@@ -729,6 +872,18 @@ function RoutePlanner() {
 
             </button>
 
+            {routeComparisonLoading && (
+              <p className="mt-4 rounded-lg bg-blue-50 p-3 text-sm font-semibold text-blue-700">
+                Calculating routes and analyzing safety...
+              </p>
+            )}
+
+            {routeComparisonError && (
+              <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                {routeComparisonError}
+              </p>
+            )}
+
             {/* -----------------------------------------------
                 DESTINATION INFORMATION
             ------------------------------------------------ */}
@@ -757,6 +912,87 @@ function RoutePlanner() {
 
               </div>
 
+            )}
+
+            {routes.length > 0 && !routeComparisonLoading && (
+              <div className="mt-6 rounded-xl bg-slate-50 p-4">
+                <h3 className="text-xl font-bold text-slate-900">
+                  Route Comparison
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Compare the available options and choose the route that fits your journey.
+                </p>
+
+                <div className="mt-4 space-y-4">
+                  {routes.map((routeOption) => {
+                    const isSelected = selectedRouteId === routeOption.id;
+                    const safety = routeOption.safety;
+                    const routeLabels = [];
+
+                    if (routeOption.id === safestRouteId) routeLabels.push("Safest");
+                    if (routeOption.id === shortestRouteId) routeLabels.push("Shortest");
+                    if (routeOption.id === fastestRouteId) routeLabels.push("Fastest");
+                    if (routeOption.id === balancedRouteId) routeLabels.push("Balanced");
+
+                    return (
+                      <button
+                        key={routeOption.id}
+                        onClick={() => selectRoute(routeOption)}
+                        className={`w-full rounded-xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow ${
+                          isSelected
+                            ? "border-green-500 bg-green-50 ring-2 ring-green-200"
+                            : "border-slate-200 bg-white"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-bold text-slate-900">
+                              {routeOption.label}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-600">
+                              {routeOption.distance.toFixed(2)} km · {Math.round(routeOption.duration)} min
+                            </p>
+                          </div>
+                          {isSelected && (
+                            <span className="rounded-full bg-green-600 px-3 py-1 text-xs font-bold text-white">
+                              Active
+                            </span>
+                          )}
+                        </div>
+
+                        {routeLabels.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+                            {routeLabels.map((label) => (
+                              <span
+                                key={`${routeOption.id}-${label}`}
+                                className={`rounded-full px-2 py-1 ${routeTagStyles[label] || "bg-slate-100 text-slate-700"}`}
+                              >
+                                {label}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="mt-4 border-t border-slate-200 pt-3">
+                          <p className="text-sm text-slate-500">Safety score</p>
+                          {safety ? (
+                            <p className="mt-1 text-2xl font-black text-green-600">
+                              {safety.safetyScore}/100
+                              <span className="ml-2 text-sm font-bold">
+                                {safety.safetyLevel}
+                              </span>
+                            </p>
+                          ) : (
+                            <p className="mt-1 text-sm font-semibold text-amber-700">
+                              {routeOption.safetyError}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             {/* -----------------------------------------------
@@ -821,6 +1057,26 @@ function RoutePlanner() {
                     : "🛡️ Analyze Route Safety"}
                 </button>
 
+                <button
+                  onClick={() =>
+                    navigate("/assistant", {
+                      state: {
+                        destination: destination || "your destination",
+                        routeLabel: selectedRouteId ? `Route ${selectedRouteId}` : "the selected route",
+                        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                        startLat: position[0],
+                        startLng: position[1],
+                        endLat: destinationPosition?.[0],
+                        endLng: destinationPosition?.[1],
+                        prompt: `What safety risks should I watch for on my trip to ${destination || "my destination"}?`,
+                      },
+                    })
+                  }
+                  className="mt-3 w-full rounded-lg border border-[#102a2b] bg-white px-4 py-3 font-bold text-[#102a2b] hover:bg-[#f2f7f5]"
+                >
+                  🤖 Ask AI Assistant about this route
+                </button>
+
                 {safetyError && (
                   <p className="mt-3 text-sm text-red-600">
                     {safetyError}
@@ -860,7 +1116,43 @@ function RoutePlanner() {
                       {safetyLevel}
                     </p>
 
+                      {safetyDataSource && (
+                        <p className="mt-3 text-xs font-semibold text-amber-700">
+                          {safetyDataSource}
+                        </p>
+                      )}
+
                   </div>
+
+                  {safetyWarnings.length > 0 && (
+                    <div className="mt-5 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                      {safetyWarnings.map((warning) => (
+                        <p key={warning}>⚠️ {warning}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  {safeZones.length > 0 && (
+                    <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                      <h4 className="text-lg font-bold text-emerald-800">Nearby Safe Zones</h4>
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                        DEMO DATA - development seed values only
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        {safeZones.map((zone) => (
+                          <div key={zone.id} className="rounded-md bg-white p-2 text-sm text-slate-700">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-semibold text-slate-800">{zone.name}</span>
+                              <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase text-emerald-700">
+                                {zone.type}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs text-slate-500">{zone.distanceKm} km away</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* SAFETY FACTORS */}
 
@@ -1038,21 +1330,41 @@ function RoutePlanner() {
                   }
                 />
 
-                {/* ROUTE */}
+                {/* ROUTES */}
 
-                {route.length > 0 && (
-
-                  <Polyline
-                    positions={
-                      route
-                    }
-                    pathOptions={{
-                      color: "blue",
-                      weight: 6,
-                    }}
-                  />
-
-                )}
+                {routes.length > 0
+                  ? routes.map((routeOption) => (
+                      <Polyline
+                        key={routeOption.id}
+                        positions={routeOption.coordinates}
+                        eventHandlers={{
+                          click: () => selectRoute(routeOption),
+                        }}
+                        pathOptions={{
+                          color:
+                            selectedRouteId === routeOption.id
+                              ? "#16a34a"
+                              : "#64748b",
+                          weight:
+                            selectedRouteId === routeOption.id
+                              ? 7
+                              : 4,
+                          opacity:
+                            selectedRouteId === routeOption.id
+                              ? 1
+                              : 0.55,
+                        }}
+                      />
+                    ))
+                  : route.length > 0 && (
+                      <Polyline
+                        positions={route}
+                        pathOptions={{
+                          color: "#2563eb",
+                          weight: 6,
+                        }}
+                      />
+                    )}
 
                 {/* UPDATE MAP */}
 

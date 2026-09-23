@@ -1,4 +1,5 @@
 import { useState } from "react";
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { useLanguage } from "../context/useLanguage";
@@ -16,6 +17,18 @@ function Dashboard() {
     }
   });
   const [contactForm, setContactForm] = useState({ name: "", phone: "" });
+  const [assistantPrompt, setAssistantPrompt] = useState(
+    "I am going to Pune Station at 11 PM."
+  );
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const [assistantResult, setAssistantResult] = useState(null);
+  const [assistantError, setAssistantError] = useState("");
+  const [assistantMessages, setAssistantMessages] = useState([
+    {
+      role: "assistant",
+      text: "Hi! Tell me where you're going and when, and I’ll give you a safer travel plan.",
+    },
+  ]);
 
   const saveContact = (event) => {
     event.preventDefault();
@@ -25,6 +38,63 @@ function Dashboard() {
     );
     setContact(contactForm);
     setContactForm({ name: "", phone: "" });
+  };
+
+  const buildAssistantSummary = (data) => {
+    const riskLabel = data?.safetyScore ? `Safety score: ${data.safetyScore}.` : "Safety score is not available yet.";
+    const weatherLine = data?.weather ? `Weather note: ${data.weather}.` : "Weather detail is unavailable.";
+    const warningLine = data?.warnings?.length
+      ? `Important note: ${data.warnings[0]}.`
+      : "No urgent warnings reported.";
+
+    return `${riskLabel} ${weatherLine} ${warningLine}`;
+  };
+
+  const askAssistant = async (event) => {
+    event.preventDefault();
+    if (!assistantPrompt.trim()) {
+      setAssistantError("Please enter a travel request.");
+      return;
+    }
+
+    const userMessage = { role: "user", text: assistantPrompt.trim() };
+    setAssistantMessages((current) => [...current, userMessage]);
+    setAssistantLoading(true);
+    setAssistantError("");
+
+    try {
+      const response = await axios.post("http://localhost:5000/api/assistant/chat", {
+        prompt: assistantPrompt,
+        currentLocation: {
+          latitude: 18.5204,
+          longitude: 73.8567,
+        },
+      });
+
+      const data = response.data;
+      setAssistantResult(data);
+      setAssistantMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          text: buildAssistantSummary(data),
+        },
+      ]);
+      setAssistantPrompt("");
+    } catch (error) {
+      const fallbackMessage =
+        error.response?.data?.message || "Unable to generate travel guidance.";
+      setAssistantMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          text: fallbackMessage,
+        },
+      ]);
+      setAssistantError(fallbackMessage);
+    } finally {
+      setAssistantLoading(false);
+    }
   };
 
   const removeContact = () => {
@@ -166,6 +236,30 @@ function Dashboard() {
               {translate("foundation")}
             </p>
           </aside>
+        </section>
+
+        <section className="mt-7 rounded-3xl bg-white p-7 shadow-sm sm:p-8">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-widest text-[#4c8b47]">
+                AI travel assistant
+              </p>
+              <h2 className="mt-2 text-3xl font-black text-[#102a2b]">
+                Ask for safer trip guidance.
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate("/assistant")}
+              className="rounded-full bg-[#102a2b] px-5 py-3 font-bold text-white hover:bg-[#1a4242]"
+            >
+              Open full assistant
+            </button>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-[#f7faf7] p-4 text-sm text-slate-600">
+            Open the full assistant page for the complete travel chat, quick prompts, and route-aware suggestions.
+          </div>
         </section>
 
         <section className="mt-7 rounded-3xl bg-white p-7 shadow-sm sm:p-8">

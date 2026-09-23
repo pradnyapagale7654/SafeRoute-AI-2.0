@@ -14,6 +14,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import RoutePlanner from "./pages/RoutePlanner";
+import AssistantPage from "./pages/AssistantPage";
 import NotFound from "./pages/NotFound";
 
 function ProtectedRoute({ children }) {
@@ -62,6 +63,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <RoutePlanner />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/assistant"
+            element={
+              <ProtectedRoute>
+                <AssistantPage />
               </ProtectedRoute>
             }
           />
