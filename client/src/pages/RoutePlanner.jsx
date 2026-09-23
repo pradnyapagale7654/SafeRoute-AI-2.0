@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 
 import {
@@ -151,6 +151,15 @@ function RoutePlanner() {
   const [routeSelected, setRouteSelected] =
     useState(false);
 
+  const [routeSteps, setRouteSteps] =
+    useState([]);
+
+  const [routeNotice, setRouteNotice] =
+    useState("");
+
+  const [voicePlaying, setVoicePlaying] =
+    useState(false);
+
   // ====================================================
   // GET CURRENT LOCATION
   // ====================================================
@@ -188,6 +197,10 @@ function RoutePlanner() {
         setRoute([]);
 
         setRouteSelected(false);
+
+        setRouteSteps([]);
+
+        setRouteNotice("");
 
         setDistance(null);
 
@@ -300,6 +313,10 @@ function RoutePlanner() {
 
       setRouteSelected(false);
 
+      setRouteSteps([]);
+
+      setRouteNotice("");
+
       setDistance(null);
 
       setDuration(null);
@@ -367,6 +384,7 @@ function RoutePlanner() {
           params: {
             overview: "full",
             geometries: "geojson",
+            steps: true,
           },
         });
 
@@ -407,6 +425,10 @@ function RoutePlanner() {
       );
 
       setRouteSelected(false);
+
+      setRouteSteps(routeData.legs?.[0]?.steps || []);
+
+      setRouteNotice("");
 
       // Distance in meters
       const distanceInKm =
@@ -493,6 +515,82 @@ function RoutePlanner() {
     }
 
     setRouteSelected(true);
+    setRouteNotice(
+      "Safe route selected. Follow the directions below for your journey."
+    );
+
+    if ("Notification" in window) {
+      const showNotification = () => {
+        new Notification("SafeRoute AI", {
+          body: "Your safe route is selected. Turn-by-turn directions are ready.",
+        });
+      };
+
+      if (Notification.permission === "granted") {
+        showNotification();
+      } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then((permission) => {
+          if (permission === "granted") {
+            showNotification();
+          }
+        });
+      }
+    }
+  };
+
+  const speakDirections = () => {
+    if (!("speechSynthesis" in window) || routeSteps.length === 0) {
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const directionsText = routeSteps
+      .map((step, index) => `${index + 1}. ${getStepInstruction(step)}`)
+      .join(". ");
+    const speech = new SpeechSynthesisUtterance(directionsText);
+
+    speech.rate = 0.95;
+    speech.onstart = () => setVoicePlaying(true);
+    speech.onend = () => setVoicePlaying(false);
+    speech.onerror = () => setVoicePlaying(false);
+    window.speechSynthesis.speak(speech);
+  };
+
+  const stopDirections = () => {
+    window.speechSynthesis.cancel();
+    setVoicePlaying(false);
+  };
+
+  useEffect(() => {
+    return () => window.speechSynthesis?.cancel();
+  }, []);
+
+  const getStepInstruction = (step) => {
+    const type = step.maneuver?.type;
+    const modifier = step.maneuver?.modifier;
+    const roadName = step.name || "the road";
+
+    if (type === "depart") {
+      return `Start on ${roadName}`;
+    }
+
+    if (type === "arrive") {
+      return "You have arrived at your destination";
+    }
+
+    if (type === "roundabout" || type === "rotary") {
+      return `Enter the roundabout and take the ${roadName}`;
+    }
+
+    if (type === "merge") {
+      return `Merge onto ${roadName}`;
+    }
+
+    if (type === "new name" || type === "continue") {
+      return `Continue on ${roadName}`;
+    }
+
+    return `Turn ${modifier || "ahead"} onto ${roadName}`;
   };
 
   // ====================================================
@@ -850,6 +948,46 @@ function RoutePlanner() {
                     <p className="mt-3 text-center text-sm font-semibold text-green-700">
                       This route is selected for your journey.
                     </p>
+                  )}
+
+                  {routeNotice && (
+                    <div className="mt-4 rounded-lg bg-blue-50 p-3 text-sm font-semibold text-blue-800">
+                      🔔 {routeNotice}
+                    </div>
+                  )}
+
+                  {routeSelected && routeSteps.length > 0 && (
+                    <div className="mt-5 border-t border-slate-200 pt-5">
+                      <h4 className="text-lg font-bold text-slate-900">
+                        Turn-by-turn directions
+                      </h4>
+                      <button
+                        onClick={voicePlaying ? stopDirections : speakDirections}
+                        className="mt-3 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      >
+                        {voicePlaying
+                          ? "🔇 Stop voice directions"
+                          : "🔊 Read directions aloud"}
+                      </button>
+                      <ol className="mt-3 max-h-64 space-y-3 overflow-y-auto pr-2">
+                        {routeSteps.map((step, index) => (
+                          <li
+                            key={`${step.maneuver?.location?.join("-")}-${index}`}
+                            className="flex gap-3 text-sm text-slate-700"
+                          >
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
+                              {index + 1}
+                            </span>
+                            <span>
+                              {getStepInstruction(step)}
+                              <span className="block text-xs text-slate-500">
+                                {Math.round(step.distance)} m
+                              </span>
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
                   )}
 
                 </div>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { useLanguage } from "../context/useLanguage";
@@ -7,6 +8,29 @@ function Dashboard() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { translate } = useLanguage();
+  const [contact, setContact] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("safeRouteTrustedContact")) || null;
+    } catch {
+      return null;
+    }
+  });
+  const [contactForm, setContactForm] = useState({ name: "", phone: "" });
+
+  const saveContact = (event) => {
+    event.preventDefault();
+    localStorage.setItem(
+      "safeRouteTrustedContact",
+      JSON.stringify(contactForm)
+    );
+    setContact(contactForm);
+    setContactForm({ name: "", phone: "" });
+  };
+
+  const removeContact = () => {
+    localStorage.removeItem("safeRouteTrustedContact");
+    setContact(null);
+  };
 
   const handleLogout = () => {
     signOut();
@@ -142,6 +166,75 @@ function Dashboard() {
               {translate("foundation")}
             </p>
           </aside>
+        </section>
+
+        <section className="mt-7 rounded-3xl bg-white p-7 shadow-sm sm:p-8">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-widest text-[#4c8b47]">
+                Emergency circle
+              </p>
+              <h2 className="mt-2 text-3xl font-black text-[#102a2b]">
+                Keep one trusted contact close.
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                This development version stores one contact on this device only.
+                Server-backed encrypted contacts can be added before production.
+              </p>
+            </div>
+            {contact && (
+              <a
+                href={`tel:${contact.phone}`}
+                className="rounded-full bg-[#f3b562] px-5 py-3 text-center font-bold text-[#102a2b] hover:bg-[#ffc980]"
+              >
+                Call {contact.name}
+              </a>
+            )}
+          </div>
+
+          {contact ? (
+            <div className="mt-6 flex flex-col justify-between gap-4 rounded-2xl bg-[#eef8e5] p-5 sm:flex-row sm:items-center">
+              <div>
+                <p className="font-bold text-[#315524]">{contact.name}</p>
+                <p className="mt-1 text-sm text-[#466b39]">{contact.phone}</p>
+              </div>
+              <button
+                onClick={removeContact}
+                className="rounded-lg border border-red-200 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50"
+              >
+                Remove contact
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={saveContact} className="mt-6 grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
+              <input
+                required
+                type="text"
+                placeholder="Contact name"
+                value={contactForm.name}
+                onChange={(event) =>
+                  setContactForm({ ...contactForm, name: event.target.value })
+                }
+                className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#4c8b47] focus:ring-2 focus:ring-[#dff7bd]"
+              />
+              <input
+                required
+                type="tel"
+                placeholder="Phone number"
+                value={contactForm.phone}
+                onChange={(event) =>
+                  setContactForm({ ...contactForm, phone: event.target.value })
+                }
+                className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#4c8b47] focus:ring-2 focus:ring-[#dff7bd]"
+              />
+              <button
+                type="submit"
+                className="rounded-xl bg-[#102a2b] px-5 py-3 font-bold text-white hover:bg-[#1a4242]"
+              >
+                Save contact
+              </button>
+            </form>
+          )}
         </section>
       </div>
     </main>

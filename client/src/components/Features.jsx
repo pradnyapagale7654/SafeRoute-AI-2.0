@@ -27,14 +27,18 @@ function Features() {
   ];
 
   return (
-    <section className="bg-gray-100 py-20">
+    <section id="features" className="bg-[#f2f7f5] py-24">
       <div className="max-w-7xl mx-auto px-6">
 
-        <h2 className="text-4xl font-bold text-center text-gray-900">
-          Why Choose SafeRoute AI?
+        <p className="text-center text-sm font-bold uppercase tracking-[0.2em] text-[#4c8b47]">
+          The safety toolkit
+        </p>
+
+        <h2 className="mt-3 text-center text-4xl font-black text-[#102a2b]">
+          Useful when the journey gets uncertain.
         </h2>
 
-        <p className="text-center text-gray-600 mt-4 mb-12">
+        <p className="mx-auto mt-4 mb-12 max-w-2xl text-center text-gray-600">
           Smart features that make every journey safer.
         </p>
 
@@ -43,7 +47,7 @@ function Features() {
           {features.map((feature, index) => (
             <div
               key={index}
-              className="bg-white rounded-2xl shadow-lg p-8 text-center hover:scale-105 hover:shadow-2xl transition-all duration-300"
+              className="animate-rise rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-xl"
             >
               <div className="text-5xl mb-5">
                 {feature.icon}
