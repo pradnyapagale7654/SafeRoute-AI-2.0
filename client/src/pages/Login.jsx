@@ -1,5 +1,139 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/useAuth";
+
+const AUTH_API_URL = "http://localhost:5000/api/auth";
+
 function Login() {
-  return <h1>Login Page</h1>;
+  const navigate = useNavigate();
+  const { signIn } = useAuth();
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
+  const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isError, setIsError] = useState(false);
+
+  const handleChange = (event) => {
+    setFormData({
+      ...formData,
+      [event.target.name]: event.target.value,
+    });
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setIsLoading(true);
+    setIsError(false);
+    setMessage("");
+
+    try {
+      const response = await axios.post(
+        `${AUTH_API_URL}/login`,
+        formData
+      );
+
+      signIn(response.data.token, response.data.user);
+      navigate("/dashboard");
+    } catch (error) {
+      setIsError(true);
+      setMessage(
+        error.response?.data?.message ||
+          "Unable to log in. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <main className="min-h-screen bg-slate-100 px-6 py-12">
+      <div className="mx-auto max-w-md rounded-2xl bg-white p-8 shadow-lg">
+        <div className="mb-8 text-center">
+          <div className="mb-3 text-4xl">🔐</div>
+          <h1 className="text-3xl font-bold text-slate-900">
+            Welcome back
+          </h1>
+          <p className="mt-2 text-slate-600">
+            Sign in to continue to SafeRoute AI.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label
+              htmlFor="email"
+              className="mb-2 block font-semibold text-slate-700"
+            >
+              Email address
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="you@example.com"
+              className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="password"
+              className="mb-2 block font-semibold text-slate-700"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="Enter your password"
+              className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full rounded-lg bg-green-600 py-3 font-bold text-white transition hover:bg-green-700"
+          >
+            {isLoading ? "Signing In..." : "Sign In"}
+          </button>
+        </form>
+
+        {message && (
+          <p
+            className={`mt-4 rounded-lg p-3 text-sm ${
+              isError
+                ? "bg-red-50 text-red-800"
+                : "bg-green-50 text-green-800"
+            }`}
+          >
+            {message}
+          </p>
+        )}
+
+        <p className="mt-6 text-center text-slate-600">
+          New here?{" "}
+          <Link
+            to="/register"
+            className="font-semibold text-green-700 hover:text-green-800"
+          >
+            Create an account
+          </Link>
+        </p>
+      </div>
+    </main>
+  );
 }
 
 export default Login;

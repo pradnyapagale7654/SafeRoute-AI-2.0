@@ -148,6 +148,9 @@ function RoutePlanner() {
   const [safetyError, setSafetyError] =
     useState("");
 
+  const [routeSelected, setRouteSelected] =
+    useState(false);
+
   // ====================================================
   // GET CURRENT LOCATION
   // ====================================================
@@ -183,6 +186,8 @@ function RoutePlanner() {
         // Clear previous route
 
         setRoute([]);
+
+        setRouteSelected(false);
 
         setDistance(null);
 
@@ -293,6 +298,8 @@ function RoutePlanner() {
 
       setRoute([]);
 
+      setRouteSelected(false);
+
       setDistance(null);
 
       setDuration(null);
@@ -399,6 +406,8 @@ function RoutePlanner() {
         routeCoordinates
       );
 
+      setRouteSelected(false);
+
       // Distance in meters
       const distanceInKm =
         routeData.distance / 1000;
@@ -476,6 +485,14 @@ function RoutePlanner() {
     } finally {
       setSafetyLoading(false);
     }
+  };
+
+  const useSafeRoute = () => {
+    if (!route.length) {
+      return;
+    }
+
+    setRouteSelected(true);
   };
 
   // ====================================================
@@ -820,10 +837,20 @@ function RoutePlanner() {
                   {/* USE ROUTE BUTTON */}
 
                   <button
-                    className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition"
+                    onClick={useSafeRoute}
+                    disabled={routeSelected}
+                    className="w-full mt-6 bg-green-600 hover:bg-green-700 disabled:bg-green-700 text-white font-bold py-3 rounded-lg transition"
                   >
-                    ✅ Use This Safe Route
+                    {routeSelected
+                      ? "✅ Safe Route Selected"
+                      : "✅ Use This Safe Route"}
                   </button>
+
+                  {routeSelected && (
+                    <p className="mt-3 text-center text-sm font-semibold text-green-700">
+                      This route is selected for your journey.
+                    </p>
+                  )}
 
                 </div>
 

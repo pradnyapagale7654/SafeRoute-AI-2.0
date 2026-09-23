@@ -1,6 +1,12 @@
 import { Link } from "react-router-dom";
+import { useAuth } from "../context/useAuth";
+import { useLanguage } from "../context/useLanguage";
+import LanguageSelect from "./LanguageSelect";
 
 function Navbar() {
+  const { isAuthenticated, user, signOut } = useAuth();
+  const { translate } = useLanguage();
+
   return (
     <nav
       style={{
@@ -15,21 +21,37 @@ function Navbar() {
       <h2>🛡 SafeRoute AI</h2>
 
       <div style={{ display: "flex", gap: "20px" }}>
-  <Link to="/">Home</Link>
-  <Link to="/route-planner">Safe Route</Link>
-  <Link to="/dashboard">Dashboard</Link>
+  <Link to="/">{translate("home")}</Link>
+  <Link to="/route-planner">{translate("safeRoute")}</Link>
+  <Link to="/dashboard">{translate("dashboard")}</Link>
+  {user?.role === "admin" && <Link to="/admin">{translate("admin")}</Link>}
 </div>
 
       <div>
-        <Link to="/login">
-          <button>Login</button>
-        </Link>
+        <LanguageSelect />
+        {isAuthenticated ? (
+          <>
+            <span>{user.name}</span>
+            <button
+              onClick={signOut}
+              style={{ marginLeft: "10px" }}
+            >
+              {translate("logout")}
+            </button>
+          </>
+        ) : (
+          <>
+            <Link to="/login">
+              <button>{translate("login")}</button>
+            </Link>
 
-        <Link to="/register">
-          <button style={{ marginLeft: "10px" }}>
-            Register
-          </button>
-        </Link>
+            <Link to="/register">
+              <button style={{ marginLeft: "10px" }}>
+                {translate("register")}
+              </button>
+            </Link>
+          </>
+        )}
       </div>
     </nav>
   );
