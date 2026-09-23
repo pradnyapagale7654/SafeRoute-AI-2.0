@@ -136,8 +136,17 @@ function RoutePlanner() {
   const [safetyScore, setSafetyScore] =
     useState(null);
 
+  const [safetyLevel, setSafetyLevel] =
+    useState("");
+
   const [safetyAnalysis, setSafetyAnalysis] =
     useState(null);
+
+  const [safetyLoading, setSafetyLoading] =
+    useState(false);
+
+  const [safetyError, setSafetyError] =
+    useState("");
 
   // ====================================================
   // GET CURRENT LOCATION
@@ -181,7 +190,11 @@ function RoutePlanner() {
 
         setSafetyScore(null);
 
+        setSafetyLevel("");
+
         setSafetyAnalysis(null);
+
+        setSafetyError("");
 
         setLocationLoading(false);
       },
@@ -286,7 +299,11 @@ function RoutePlanner() {
 
       setSafetyScore(null);
 
+      setSafetyLevel("");
+
       setSafetyAnalysis(null);
+
+      setSafetyError("");
 
     } catch (error) {
 
@@ -402,7 +419,11 @@ function RoutePlanner() {
 
       setSafetyScore(null);
 
+      setSafetyLevel("");
+
       setSafetyAnalysis(null);
+
+      setSafetyError("");
 
     } catch (error) {
 
@@ -422,7 +443,7 @@ function RoutePlanner() {
   // ANALYZE ROUTE SAFETY
   // ====================================================
 
-  const analyzeSafety = () => {
+  const analyzeSafety = async () => {
 
     if (!route.length) {
 
@@ -433,72 +454,28 @@ function RoutePlanner() {
       return;
     }
 
-    /*
-      TEMPORARY DEMO SAFETY SCORE
+    try {
+      setSafetyLoading(true);
+      setSafetyError("");
 
-      This is NOT real AI yet.
+      const response = await axios.post(
+        "http://localhost:5000/api/safety/analyze"
+      );
 
-      Later we will replace this
-      with our Node.js backend.
-    */
+      const { safetyScore: score, safetyLevel: level, factors } =
+        response.data;
 
-    const score =
-      Math.floor(
-        Math.random() * 21
-      ) + 75;
-
-    let crimeRisk;
-
-    let lighting;
-
-    let traffic;
-
-    let communityReports;
-
-    if (score >= 90) {
-
-      crimeRisk = "Very Low";
-
-      lighting = "Excellent";
-
-      traffic = "Low";
-
-      communityReports = "Very Low";
-
-    } else if (score >= 85) {
-
-      crimeRisk = "Low";
-
-      lighting = "Good";
-
-      traffic = "Low";
-
-      communityReports = "Low";
-
-    } else {
-
-      crimeRisk = "Moderate";
-
-      lighting = "Moderate";
-
-      traffic = "Moderate";
-
-      communityReports = "Low";
+      setSafetyScore(score);
+      setSafetyLevel(level);
+      setSafetyAnalysis(factors);
+    } catch (error) {
+      console.error(error);
+      setSafetyError(
+        "Unable to analyze route safety. Please try again."
+      );
+    } finally {
+      setSafetyLoading(false);
     }
-
-    setSafetyScore(score);
-
-    setSafetyAnalysis({
-
-      crimeRisk,
-
-      lighting,
-
-      traffic,
-
-      communityReports,
-
-    });
   };
 
   // ====================================================
@@ -721,10 +698,19 @@ function RoutePlanner() {
                   onClick={
                     analyzeSafety
                   }
+                  disabled={safetyLoading}
                   className="w-full mt-5 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg transition"
                 >
-                  🛡️ Analyze Route Safety
+                  {safetyLoading
+                    ? "Analyzing Route..."
+                    : "🛡️ Analyze Route Safety"}
                 </button>
+
+                {safetyError && (
+                  <p className="mt-3 text-sm text-red-600">
+                    {safetyError}
+                  </p>
+                )}
 
               </div>
 
@@ -756,13 +742,7 @@ function RoutePlanner() {
                     </p>
 
                     <p className="text-green-600 font-semibold mt-2">
-
-                      {safetyScore >= 90
-                        ? "🟢 Very Safe Route"
-                        : safetyScore >= 85
-                        ? "🟢 Safe Route"
-                        : "🟡 Moderately Safe"}
-
+                      {safetyLevel}
                     </p>
 
                   </div>
