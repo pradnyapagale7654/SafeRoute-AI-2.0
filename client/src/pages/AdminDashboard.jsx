@@ -2,18 +2,21 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../context/useAuth";
+import { API_BASE_URL } from "../services/api";
 
 function AdminDashboard() {
   const navigate = useNavigate();
   const { token, user, signOut } = useAuth();
   const [overview, setOverview] = useState(null);
+  const [incidents, setIncidents] = useState([]);
+  const [incidentFilter, setIncidentFilter] = useState("all");
   const [error, setError] = useState("");
 
   useEffect(() => {
     const loadOverview = async () => {
       try {
         const response = await axios.get(
-          "http://localhost:5000/api/admin/overview",
+          `${API_BASE_URL}/admin/overview`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setOverview(response.data.overview);
@@ -25,8 +28,30 @@ function AdminDashboard() {
       }
     };
 
+    const loadIncidents = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/admin/incidents`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: incidentFilter === "all" ? {} : { status: incidentFilter },
+        });
+        setIncidents(response.data.incidents || []);
+      } catch (requestError) {
+        setError(requestError.response?.data?.message || "Unable to load incident reports.");
+      }
+    };
+
     loadOverview();
-  }, [token]);
+    loadIncidents();
+  }, [token, incidentFilter]);
+
+  const updateIncident = async (incidentId, status) => {
+    try {
+      await axios.patch(`${API_BASE_URL}/incidents/${incidentId}/status`, { status, verified: status === "verified" }, { headers: { Authorization: `Bearer ${token}` } });
+      setIncidents((current) => current.map((incident) => incident._id === incidentId ? { ...incident, status, verified: status === "verified" } : incident));
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to update incident status.");
+    }
+  };
 
   const handleLogout = () => {
     signOut();
@@ -86,8 +111,8 @@ function AdminDashboard() {
           </div>
         </section>
 
-        <section className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {[['Active users', overview?.activeUsers], ['SOS events', overview?.sosEvents], ['Incident reports', overview?.incidentReports], ['Live sessions', overview?.activeLiveSessions]].map(([label, value]) => (
+        <section className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-6">
+          {[['Active users', overview?.activeUsers], ['SOS events', overview?.sosEvents], ['Incident reports', overview?.incidentReports], ['Pending incidents', overview?.pendingIncidents], ['Resolved incidents', overview?.resolvedIncidents], ['Live sessions', overview?.activeLiveSessions]].map(([label, value]) => (
             <div key={label} className="rounded-2xl bg-white p-5 shadow-sm"><p className="text-sm font-bold text-slate-500">{label}</p><p className="mt-2 text-3xl font-black text-[#102a2b]">{value ?? "--"}</p></div>
           ))}
         </section>
@@ -95,6 +120,14 @@ function AdminDashboard() {
         <section className="mt-7 grid gap-5 lg:grid-cols-2">
           <div className="rounded-3xl bg-white p-6 shadow-sm"><h2 className="text-xl font-black">Incident categories</h2><div className="mt-4 space-y-2">{(overview?.incidentCategories || []).map((item) => <div key={item._id} className="flex justify-between rounded-lg bg-slate-50 p-3 text-sm"><span>{item._id}</span><strong>{item.count}</strong></div>)}</div></div>
           <div className="rounded-3xl bg-white p-6 shadow-sm"><h2 className="text-xl font-black">Report status</h2><div className="mt-4 space-y-2">{(overview?.incidentStatuses || []).map((item) => <div key={item._id} className="flex justify-between rounded-lg bg-slate-50 p-3 text-sm"><span>{item._id}</span><strong>{item.count}</strong></div>)}</div></div>
+        </section>
+
+        <section className="mt-7 rounded-3xl bg-white p-6 shadow-sm">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div><p className="text-sm font-bold uppercase tracking-widest text-[#4c8b47]">Moderation queue</p><h2 className="mt-2 text-2xl font-black">Incident reports</h2></div>
+            <select value={incidentFilter} onChange={(event) => setIncidentFilter(event.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold"><option value="all">All statuses</option><option value="open">Open</option><option value="verified">Verified</option><option value="resolved">Resolved</option><option value="rejected">Rejected</option></select>
+          </div>
+          <div className="mt-5 space-y-3">{incidents.length === 0 ? <p className="text-sm text-slate-500">No incident reports match this filter.</p> : incidents.map((incident) => <article key={incident._id} className="rounded-2xl border border-slate-200 p-4"><div className="flex flex-col justify-between gap-3 sm:flex-row"><div><p className="font-black">{incident.category} · {incident.severity}</p><p className="mt-1 text-sm text-slate-600">{incident.description}</p></div><select value={incident.status} onChange={(event) => updateIncident(incident._id, event.target.value)} className="h-fit rounded-lg border border-slate-300 px-2 py-2 text-sm font-bold"><option value="open">Open</option><option value="verified">Verified</option><option value="resolved">Resolved</option><option value="rejected">Rejected</option></select></div></article>)}</div>
         </section>
 
         <section className="mt-7 grid gap-5 lg:grid-cols-[1.4fr_0.8fr]">

@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
+import { API_BASE_URL } from "../services/api";
 
-const API_URL = "http://localhost:5000/api/location";
+const API_URL = `${API_BASE_URL}/location`;
 const headers = (token) => ({
   headers: { Authorization: `Bearer ${token}` },
 });

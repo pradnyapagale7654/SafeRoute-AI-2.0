@@ -3,8 +3,9 @@ import { Link } from "react-router-dom";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
+import { API_BASE_URL } from "../services/api";
 
-const AUTH_API_URL = "http://localhost:5000/api/auth";
+const AUTH_API_URL = `${API_BASE_URL}/auth`;
 
 function Login() {
   const navigate = useNavigate();

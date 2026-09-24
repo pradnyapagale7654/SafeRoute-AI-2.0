@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
+import { API_BASE_URL } from "../services/api";
 
-const API_URL = "http://localhost:5000/api/incidents";
+const API_URL = `${API_BASE_URL}/incidents`;
 const categories = ["harassment", "suspicious activity", "accident", "blocked road", "streetlight outage", "flooding", "dog attack", "unsafe area", "other"];
 
 function IncidentPage() {

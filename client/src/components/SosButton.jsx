@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useAuth } from "../context/useAuth";
+import { API_BASE_URL } from "../services/api";
 
-const API_URL = "http://localhost:5000/api/sos";
+const API_URL = `${API_BASE_URL}/sos`;
 const COUNTDOWN_SECONDS = 5;
 
 const getLocalContact = () => {

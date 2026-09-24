@@ -5,6 +5,7 @@ import { useAuth } from "../context/useAuth";
 import { useLanguage } from "../context/useLanguage";
 import LanguageSelect from "../components/LanguageSelect";
 import SosButton from "../components/SosButton";
+import { API_BASE_URL } from "../services/api";
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -12,10 +13,11 @@ function Dashboard() {
   const { translate } = useLanguage();
   const [contacts, setContacts] = useState([]);
   const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", relationship: "trusted contact" });
+  const [editingContactId, setEditingContactId] = useState(null);
   const [contactMessage, setContactMessage] = useState("");
 
   useEffect(() => {
-    axios.get("http://localhost:5000/api/trusted-circle", {
+    axios.get(`${API_BASE_URL}/trusted-circle`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then((response) => {
       const nextContacts = response.data.contacts || [];
@@ -27,28 +29,47 @@ function Dashboard() {
   const saveContact = async (event) => {
     event.preventDefault();
     try {
-      const response = await axios.post("http://localhost:5000/api/trusted-circle", contactForm, {
+      const response = await axios({
+        method: editingContactId ? "patch" : "post",
+        url: editingContactId
+          ? `${API_BASE_URL}/trusted-circle/${editingContactId}`
+          : `${API_BASE_URL}/trusted-circle`,
+        data: contactForm,
         headers: { Authorization: `Bearer ${token}` },
       });
-      setContacts((current) => [response.data.contact, ...current]);
+      setContacts((current) => editingContactId
+        ? current.map((item) => item.id === editingContactId ? response.data.contact : item)
+        : [response.data.contact, ...current]);
       setContactForm({ name: "", email: "", phone: "", relationship: "trusted contact" });
+      setEditingContactId(null);
     } catch {
       setContactMessage("Unable to save trusted contact.");
     }
   };
 
   const removeContact = async (contactId) => {
-    await axios.delete(`http://localhost:5000/api/trusted-circle/${contactId}`, {
+    await axios.delete(`${API_BASE_URL}/trusted-circle/${contactId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     setContacts((current) => current.filter((item) => item.id !== contactId));
   };
 
   const markEmergencyContact = async (contactId) => {
-    const response = await axios.patch(`http://localhost:5000/api/trusted-circle/${contactId}/emergency`, {}, {
+    const response = await axios.patch(`${API_BASE_URL}/trusted-circle/${contactId}/emergency`, {}, {
       headers: { Authorization: `Bearer ${token}` },
     });
     setContacts((current) => current.map((item) => ({ ...item, isEmergencyContact: item.id === response.data.contact.id })));
+  };
+
+  const editContact = (contact) => {
+    setEditingContactId(contact.id);
+    setContactForm({
+      name: contact.name,
+      email: contact.email || "",
+      phone: contact.phone,
+      relationship: contact.relationship || "trusted contact",
+    });
+    setContactMessage("");
   };
 
   const handleLogout = () => {
@@ -259,7 +280,7 @@ function Dashboard() {
               {contacts.map((item) => (
                 <div key={item.id} className="flex flex-col justify-between gap-4 rounded-2xl bg-[#eef8e5] p-5 sm:flex-row sm:items-center">
                   <div><p className="font-bold text-[#315524]">{item.name} {item.isEmergencyContact ? "· Emergency" : ""}</p><p className="mt-1 text-sm text-[#466b39]">{item.phone}{item.email ? ` · ${item.email}` : ""}</p></div>
-                  <div className="flex gap-2"><button onClick={() => markEmergencyContact(item.id)} className="rounded-lg border border-[#4c8b47] px-3 py-2 text-sm font-bold text-[#315524]">Mark emergency</button><button onClick={() => removeContact(item.id)} className="rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700">Remove</button></div>
+                  <div className="flex gap-2"><button onClick={() => editContact(item)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700">Edit</button><button onClick={() => markEmergencyContact(item.id)} className="rounded-lg border border-[#4c8b47] px-3 py-2 text-sm font-bold text-[#315524]">Mark emergency</button><button onClick={() => removeContact(item.id)} className="rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700">Remove</button></div>
                 </div>
               ))}
             </div>
@@ -296,7 +317,7 @@ function Dashboard() {
                 type="submit"
                 className="rounded-xl bg-[#102a2b] px-5 py-3 font-bold text-white hover:bg-[#1a4242] sm:col-span-2"
               >
-                Save contact
+                {editingContactId ? "Update contact" : "Save contact"}
               </button>
           </form>
               {contactMessage && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">{contactMessage}</p>}

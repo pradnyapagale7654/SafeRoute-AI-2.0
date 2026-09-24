@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { buildAssistantSummary, getRouteAwarePrompts, normalizeFactorList } from "../utils/assistantUtils";
+import { API_BASE_URL } from "../services/api";
 
 function AssistantPage() {
   const navigate = useNavigate();
@@ -41,7 +42,7 @@ function AssistantPage() {
     setError("");
 
     try {
-      const response = await axios.post("http://localhost:5000/api/assistant/chat", {
+      const response = await axios.post(`${API_BASE_URL}/assistant/chat`, {
         prompt: trimmedPrompt,
         currentLocation: {
           latitude: plannerState.startLat || 18.5204,

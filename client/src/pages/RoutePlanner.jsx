@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import SosButton from "../components/SosButton";
+import { API_BASE_URL } from "../services/api";
 
 import {
   MapContainer,
@@ -398,7 +399,7 @@ function RoutePlanner() {
 
     try {
       const safetyResponse = await axios.post(
-        "http://localhost:5000/api/safety/analyze",
+        `${API_BASE_URL}/safety/analyze`,
         {
           start: {
             latitude: position[0],
@@ -548,7 +549,7 @@ function RoutePlanner() {
       setSafetyError("");
 
       const response = await axios.post(
-        "http://localhost:5000/api/safety/analyze",
+          `${API_BASE_URL}/safety/analyze`,
         {
           start: {
             latitude: position[0],
@@ -582,7 +583,7 @@ function RoutePlanner() {
 
       try {
         const nearbyResponse = await axios.get(
-          "http://localhost:5000/api/safe-zones/nearby",
+          `${API_BASE_URL}/safe-zones/nearby`,
           {
             params: {
               latitude: position[0],
